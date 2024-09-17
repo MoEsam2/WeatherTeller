@@ -1,4 +1,5 @@
 <resources>
     <string name="app_name">WeatherTeller</string>
     <string name="api_key">2d7e152f5242705a9495881287bee617</string>
+    <string name="forecast">Five Days Forecast</string>
 </resources>

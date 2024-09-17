@@ -55,5 +55,7 @@ dependencies {
     implementation(libs.retrofit)
     implementation(libs.converter.gson)
     implementation(libs.converter.moshi)
+    //glide
+    implementation(libs.glide)
 
 }

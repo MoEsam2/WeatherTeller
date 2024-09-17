@@ -3,50 +3,67 @@ package com.example.weatherteller.ui
 import android.os.Bundle
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import com.example.weatherteller.R
-import com.example.weatherteller.data.source.remote.network.RetrofitModule
+import androidx.lifecycle.ViewModelProvider
+import com.bumptech.glide.Glide
+import com.example.weatherteller.data.source.remote.model.CurrentWeather
 import com.example.weatherteller.databinding.ActivityMainBinding
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import retrofit2.HttpException
-import java.io.IOException
+import java.text.SimpleDateFormat
+import java.util.Locale
 
 class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
+    private lateinit var viewModel: WeatherViewModel
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        getCurrentWeather()
+        viewModel = ViewModelProvider(
+            this,
+            WeatherViewModelFactory(application)
+        ).get(WeatherViewModel::class)
+
+        viewModel.getCurrentWeather()
+        viewModel.weatherData.observe(this) { currentWeather ->
+            currentWeather?.let {
+                val iconId = currentWeather.weather[0].icon
+                val imgUrl = "https://openweathermap.org/img/wn/$iconId@4x.png"
+                Glide.with(binding.imageWeather.context).load(imgUrl).into(binding.imageWeather)
+                addCallBack(currentWeather)
+            }
+
+        }
+        viewModel.error.observe(this) { error ->
+            Toast.makeText(this, error, Toast.LENGTH_SHORT).show()
+        }
 
     }
 
-    private fun getCurrentWeather() {
-        GlobalScope.launch(Dispatchers.IO) {
-            val response = try {
-                RetrofitModule.api.getCurrentWeather(
-                    "new york", "metric", applicationContext.getString(
-                        R.string.api_key
-                    )
-                )
+    private fun addCallBack(currentWeather: CurrentWeather) {
+        binding.textViewSunSet.text = SimpleDateFormat(
+            "hh:mm a",
+            Locale.ENGLISH
+        ).format(currentWeather.sys.sunset * 1000)
 
-            } catch (e: IOException) {
-                Toast.makeText(applicationContext, "app error ${e.message}", Toast.LENGTH_SHORT)
-                    .show()
-                return@launch
-            } catch (e: HttpException) {
-                Toast.makeText(applicationContext, "http error ${e.message}", Toast.LENGTH_SHORT)
-                    .show()
-                return@launch
-            }
-            if (response.isSuccessful && response.body() != null) {
-                withContext(Dispatchers.Main) {
-                    binding.temp.text = "temp:${response.body()!!.main.temp}"
-                }
-            }
+        binding.textViewSunRise.text = SimpleDateFormat(
+            "hh:mm a",
+            Locale.ENGLISH
+        ).format(currentWeather.sys.sunrise * 1000)
+
+        binding.apply {
+            textViewWeatherDisc.text = currentWeather.weather[0].description
+            textViewWind.text = " ${currentWeather.wind.speed} KM/H"
+            textViewLocation.text = "${currentWeather.name}\n${currentWeather.sys.country}"
+            textViewTemp.text = "${currentWeather.main.temp.toInt()}°C"
+            textViewWeatherFeelsLike.text =
+                "Feels like: ${currentWeather.main.feels_like.toInt()}°C"
+            textViewMinTemp.text = "Min: ${currentWeather.main.temp_min.toInt()}°C"
+            textViewMaxTemp.text = "Max: ${currentWeather.main.temp_max.toInt()}°C"
+            textViewHumidity.text = "${currentWeather.main.humidity} %"
+            textViewPressure.text = "${currentWeather.main.pressure} hPa"
+            textViewAirQuality.text = "Air quality \n Fair"
         }
     }
+
+
 }
