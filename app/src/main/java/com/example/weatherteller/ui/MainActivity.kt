@@ -4,18 +4,36 @@ import android.os.Bundle
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.ViewModelProvider
+import androidx.recyclerview.widget.GridLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
+import com.example.weatherteller.R
+import com.example.weatherteller.adapter.ForecastAdapter
+import com.example.weatherteller.data.source.remote.Forecast.ForecastData
 import com.example.weatherteller.data.source.remote.model.CurrentWeather
 import com.example.weatherteller.databinding.ActivityMainBinding
+import com.example.weatherteller.databinding.BottomSheetLayoutBinding
+import com.google.android.material.bottomsheet.BottomSheetDialog
 import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Locale
 
 class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private lateinit var viewModel: WeatherViewModel
+    private lateinit var bottomSheetLayoutBinding: BottomSheetLayoutBinding
+
+    private val dialog: BottomSheetDialog by lazy {
+        BottomSheetDialog(this, R.style.BottomSheetTheme).apply {
+            setContentView(bottomSheetLayoutBinding.root)
+            window?.attributes?.windowAnimations = R.style.DialogAnimation
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
+        bottomSheetLayoutBinding = BottomSheetLayoutBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
         viewModel = ViewModelProvider(
@@ -40,15 +58,14 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun addCallBack(currentWeather: CurrentWeather) {
-        binding.textViewSunSet.text = SimpleDateFormat(
-            "hh:mm a",
-            Locale.ENGLISH
-        ).format(currentWeather.sys.sunset * 1000)
+        binding.textViewSunSet.text = dateFormatConverter(
+            currentWeather.sys.sunset.toLong()
+        )
 
-        binding.textViewSunRise.text = SimpleDateFormat(
-            "hh:mm a",
-            Locale.ENGLISH
-        ).format(currentWeather.sys.sunrise * 1000)
+        binding.textViewSunRise.text = dateFormatConverter(
+            currentWeather
+                .sys.sunrise.toLong()
+        )
 
         binding.apply {
             textViewWeatherDisc.text = currentWeather.weather[0].description
@@ -62,6 +79,43 @@ class MainActivity : AppCompatActivity() {
             textViewHumidity.text = "${currentWeather.main.humidity} %"
             textViewPressure.text = "${currentWeather.main.pressure} hPa"
             textViewAirQuality.text = "Air quality \n Fair"
+        }
+
+        binding.textViewFiveDays.setOnClickListener {
+            openDialog()
+        }
+    }
+
+    private fun dateFormatConverter(date: Long): String =
+        SimpleDateFormat(
+            "hh:mm a",
+            Locale.ENGLISH
+        ).format(Date(date * 1000))
+
+    private fun openDialog() {
+        getForecast()
+
+        bottomSheetLayoutBinding.recyclerViewForecast.apply {
+            setHasFixedSize(true)
+            layoutManager = GridLayoutManager(this@MainActivity, 1, RecyclerView.HORIZONTAL, false)
+        }
+
+        dialog.show()
+    }
+
+
+    private fun getForecast() {
+        viewModel.getForecast()
+        viewModel.forecastData.observe(this) { currentForecast ->
+            currentForecast?.let {
+                val forecastArray: ArrayList<ForecastData> =
+                    currentForecast.list as ArrayList<ForecastData>
+                val adapter = ForecastAdapter(forecastArray)
+                bottomSheetLayoutBinding.recyclerViewForecast.adapter = adapter
+                bottomSheetLayoutBinding.textViewFiveDays.text =
+                    "Five days forecast in ${currentForecast.city.name}"
+            }
+
         }
     }
 

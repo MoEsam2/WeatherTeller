@@ -7,6 +7,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.weatherteller.R
 import com.example.weatherteller.data.repository.WeatherRepository
+import com.example.weatherteller.data.source.remote.Forecast.Forecast
 import com.example.weatherteller.data.source.remote.model.CurrentWeather
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -19,6 +20,9 @@ class WeatherViewModel(private val context: Context) : ViewModel() {
 
     private val _weatherData = MutableLiveData<CurrentWeather>()
     val weatherData: LiveData<CurrentWeather> get() = _weatherData
+
+    private val _forecastData = MutableLiveData<Forecast>()
+    val forecastData: LiveData<Forecast> get() = _forecastData
 
     private val _error = MutableLiveData<String>()
     val error: LiveData<String> get() = _error
@@ -46,5 +50,30 @@ class WeatherViewModel(private val context: Context) : ViewModel() {
             }
         }
     }
+    fun getForecast() {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val response = weatherRepository.getForecast(
+                    "new york",
+                    "metric",
+                    context.getString(R.string.api_key)
+                )
+
+                if (response.isSuccessful) {
+                    _forecastData.postValue(response.body())
+                } else {
+                    _error.postValue("Error: ${response.code()} - ${response.message()}")
+                }
+            } catch (e: IOException) {
+
+                _error.postValue("Network error: ${e.message}")
+            } catch (e: HttpException) {
+
+                _error.postValue("HTTP error: ${e.message}")
+            }
+        }
+    }
+
+
 
 }
